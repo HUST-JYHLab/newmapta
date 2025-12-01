@@ -140,24 +140,6 @@ class CTFExecutor:
             if stream:
                 for chunk in result:
                     pass
-                try:
-                    crew.reset_memories(command_type='long')      # Long-term memory
-                except:
-                    pass
-                try:
-                    crew.reset_memories(command_type='entity')    # Entity memory
-                except:
-                    pass
-                # try:
-                #     crew.reset_memories(command_type='knowledge') # Knowledge storage
-                # except:
-                #     pass
-                with memory_lock:
-                    memory_key_status[target_key] = True
-            result = crew.kickoff()
-            if stream:
-                for chunk in result:
-                    pass
                     # print(chunk.content, end="", flush=True)
                 result = result.result
             self.logger.info(f"usage_metrics: {crew.usage_metrics}")
