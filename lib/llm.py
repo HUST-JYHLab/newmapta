@@ -17,7 +17,7 @@ class CrewLLMConfig:
             "recon_scout": {"model": "deepseek-chat", "temperature": 0.15, "max_tokens": 4096},
             "vulnerability_hunter": {"model": "deepseek-chat", "temperature": 0.2, "max_tokens": 4096},
             "ctf_exploit_expert": {"model": "deepseek-chat", "temperature": 0.25, "max_tokens": 8094},
-            "opportunistic_coordinator": {"model": "deepseek-reasoner", "temperature": 0.3, "max_tokens": 8094},
+            "opportunistic_coordinator": {"model": "deepseek-chat", "temperature": 0.3, "max_tokens": 8094},
         }
         
         provider    = os.getenv("CREWAI_LLM_PROVIDER")
@@ -42,8 +42,8 @@ class CrewLLMConfig:
             )
             llm.supports_tools = True
         elif provider == "deepseek":
-            llm = LLM(
-                model="deepseek/" + (model_name or cfg["model"]),
+            llm = OpenAICompletion(
+                model=(model_name or cfg["model"]),
                 base_url=base_url,
                 api_key=api_key,
                 temperature=cfg["temperature"],
@@ -51,6 +51,7 @@ class CrewLLMConfig:
                 timeout=llm_timeout,
                 stream=stream,
             )
+            llm.is_o1_model = True
         else:
             llm = OpenAICompletion(
                 model=model_name or cfg["model"],
@@ -61,7 +62,7 @@ class CrewLLMConfig:
                 timeout=llm_timeout,
                 stream=stream,
                 # extra_body={"reasoning_split": True},
-                reasoning_effort="none"
+                # reasoning_effort="none"
             )
         self.cache[role_type] = llm
         return llm
@@ -88,6 +89,6 @@ else:
         api_key=os.getenv("BROWSER_OPENAI_KEY"),
         base_url=os.getenv("BROWSER_OPENAI_BASE_URL"),
         temperature=0.15,
-        reasoning_models=["deepseek/deepseek-reasoner", "MiniMax-M2"],
+        reasoning_models=["deepseek/deepseek-reasoner", "MiniMax-M2", "MiniMaxAI/MiniMax-M2"],
         # reasoning_effort="none"
     )
