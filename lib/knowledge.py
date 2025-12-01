@@ -19,7 +19,7 @@ def init_rag_countext():
         embedding = build_embedder(get_embedder_config_from_env())
         set_rag_config(
             config=ChromaDBConfig(
-                batch_size=64, # ai api 限制
+                batch_size=64 if os.getenv("CREWAI_EMBEDDING_MODEL") == "BAAI/bge-m3" else 100, # ai api 限制 if CREWAI_EMBEDDING_MODEL is BAAI/bge-m3
                 embedding_function=cast(
                     ChromaEmbeddingFunctionWrapper, embedding
                 ),

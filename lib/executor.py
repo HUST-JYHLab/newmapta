@@ -96,7 +96,7 @@ class CTFExecutor:
                 # function_calling_llm=self.system.llm_config.get_llm_by_role("tool_call"),
                 verbose=is_verbose(),
                 tracing=is_verbose(),
-                memory=True,
+                memory=False,
                 max_rpm=30,  # 更合理的限制
                 max_iter=8,   # 给予更多推理空间
                 max_execution_time=1700,  # 1800秒超时
@@ -129,7 +129,7 @@ class CTFExecutor:
                 with memory_lock:
                     return memory_key_status.get(target_key, False)
             if not _is_memory_initialized(target_key):
-                for command_type in ['short', 'long', 'entity']: # kickoff_outputs、knowledge 看情况
+                for command_type in ['entity', 'short', 'long', ]: # kickoff_outputs、knowledge 看情况
                     try:
                         crew.reset_memories(command_type=command_type)
                     except:
