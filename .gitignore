@@ -1,0 +1,7 @@
+.env
+logs/*
+targets.txt
+ctf-wscan
+__pycache__
+knowledge/web?
+crewAI

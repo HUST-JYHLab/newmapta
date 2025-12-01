@@ -1,0 +1,69 @@
+## **A. No-SQL GraphQL**
+
+### 1. 类型
+
+* GraphQL NoSQL 注入
+* 参数污染绕过验证
+* 聚合管道注入
+
+### 2. 解题输出思路
+
+1. 探测 GraphQL 端点（通常为 `/graphql` 或 `/api/graphql`）
+2. 检查 introspection 查询（`query { __schema { types { name } } }`）
+3. 分析 schema 结构，寻找用户、认证相关字段
+4. 尝试构造恶意查询绕过认证或枚举数据
+5. 利用参数污染绕过校验
+6. 输出 flag 或抓取敏感数据
+
+### 3. 关注点
+
+* GraphQL 是否启用 introspection
+* 参数类型和校验逻辑
+* 数据库类型（MongoDB 等 NoSQL）
+* 认证机制（JWT、Session）是否在查询中被绕过
+* 错误信息是否泄露内部结构
+
+### 4. 通用
+
+#### 通用步骤
+
+* 发送 introspection 查询获取 schema
+* 构造基础查询获取所有可能的类型和字段
+* 测试错误响应模式
+
+#### 步骤常用
+
+* 参数污染绕过
+* 使用 MongoDB 操作符如 `$regex`、`$where` 进行模糊匹配
+* 尝试在参数中注入 `{}` 或 `{"$ne": null}`
+
+### 5. 方法论
+
+* 利用 GraphQL 的强类型和灵活性
+* 绕过前端验证逻辑，直接操作后端查询
+* 流程：信息泄露 → 参数污染 → 数据枚举 → flag 获取
+
+### 6. 启发性问题
+
+* 是否允许 `__schema` 或 `__type` 查询？
+* 参数是否直接传递给数据库查询？
+* 是否存在默认账户或弱密码？
+* 查询中是否可以注入 MongoDB 操作符？
+
+### 7. 绕过手法
+
+* 参数污染（Parameter Pollution）
+* MongoDB 操作符注入（`$ne`, `$regex`, `$where`）
+* 利用 GraphQL 联合类型或接口进行查询
+* 使用 `null` 或 `undefined` 值绕过校验
+
+### 8. 典型 payload
+
+#### Introspection 查询：
+
+```json
+{
+  "query": "{ __schema { types { name, fields { name, type { name } } } } }"
+}
+```
+

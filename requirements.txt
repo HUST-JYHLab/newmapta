@@ -1,0 +1,12 @@
+playwright>=1.47.0
+httpx>=0.25.0
+openai>=1.50.0
+steel-sdk>=0.9.0
+python-dotenv>=1.2.1
+browser_use>=0.10.1
+crewai>=1.6.1
+langchain-openai>=0.2.0
+crewai-tools>=0.1.0
+litellm>=0.2.0
+pebble>=5.0.0
+requests_raw>=2.0.2

