@@ -741,36 +741,55 @@ class RawHttpTool(BaseTool):
         Returns:
             修复后的HTTP请求字符串
         """
-        if raw_request.startswith("GET") and "\r\n\r\n" not in raw_request:
-            if raw_request.endswith("\r\n"):
-                raw_request += "\r\n"
+        sep = "\n"
+        first_line = raw_request.split(sep)[0]
+        if first_line.endswith("\r"):
+            sep = "\r\n"
+
+        if raw_request.startswith("GET") and sep + sep not in raw_request:
+            if raw_request.endswith(sep):
+                raw_request += sep
             else:
-                raw_request += "\r\n\r\n"
+                raw_request += sep + sep
 
 
         # 将请求按空行分割为头部和主体
-        pa1 = raw_request.split('\r\n', 1)
+        pa1 = raw_request.split(sep, 1)
         if len(pa1) == 2:
             pa2 = pa1[0].split(" ", 1)
             if len(pa2) == 2 and pa2[1].count(" ") > 1:
-                raw_request = pa2[0] + " " + pa2[1].replace(" ", "+").replace("+HTTP/", " HTTP/") + '\r\n' + pa1[1]
+                raw_request = pa2[0] + " " + pa2[1].replace(" ", "+").replace("+HTTP/", " HTTP/") + sep + pa1[1]
             
-        parts = raw_request.split('\r\n\r\n', 1)
+        parts = raw_request.split(sep + sep, 1)
         if len(parts) == 1:
             # 如果没有明确的主体部分，直接返回原请求
+            # 尝试从单行请求中解析URL
+            try:
+                first_line = raw_request.split(sep)[0]
+                parts_line = first_line.split(" ")
+                if len(parts_line) >= 2:
+                    return parts_line[1], raw_request
+            except Exception:
+                pass
             return raw_request
             
         headers_part, body_part = parts
         
         # 解析头部
-        headers_lines = headers_part.split('\r\n')
+        headers_lines = headers_part.split(sep)
+        if not headers_lines:
+            return raw_request
+            
         request_line = headers_lines[0]  # 第一行是请求行
         header_lines = headers_lines[1:]  # 其余是头部
 
         request_line_split = request_line.split(" ")
+        if len(request_line_split) >= 2:
+            url = request_line_split[1]
+        else:
+            url = ""
         # method = request_line_split[0]
-        url = request_line_split[1]
-        # http_version = request_line_split[2]
+        # http_version = request_line_split[2] if len(request_line_split) > 2 else ""
         
         # 处理主体
         body = body_part.strip()
@@ -799,7 +818,7 @@ class RawHttpTool(BaseTool):
             new_headers.append(f"Content-Length: {body_length}")
         
         # 重新构建请求
-        fixed_request = '\r\n'.join(new_headers) + '\r\n\r\n' + body
+        fixed_request = sep.join(new_headers) + sep + sep + body
         
         return url, fixed_request
 
