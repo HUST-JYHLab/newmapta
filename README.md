@@ -1,3 +1,5 @@
+[![腾讯云黑客松-智能渗透挑战赛](./img.png)](https://zc.tencent.com/competition/competitionHackathon?code=cha004)
+
 ## 框架
 
 - 基于CrewAI的ReAct架构
